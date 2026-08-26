@@ -1,0 +1,70 @@
+#!/bin/bash
+
+BUILD_DIR=$1
+
+indent() {
+  sed 's/^/       /'
+}
+
+ELASTIC_AGENT_VERSION=${ELASTIC_AGENT_VERSION:-9.4.5}
+ELASTIC_AGENT_FLAVOR=${ELASTIC_AGENT_FLAVOR:-basic}
+
+BUILDPACK_PATH=$(dirname $(readlink -f $0))/../
+
+case "$ELASTIC_AGENT_FLAVOR" in
+  basic)
+    OCI_IMAGE="docker.elastic.co/elastic-agent/elastic-agent-slim:${ELASTIC_AGENT_VERSION}"
+    ;;
+  servers)
+    OCI_IMAGE="docker.elastic.co/elastic-agent/elastic-agent:${ELASTIC_AGENT_VERSION}"
+    ;;
+  complete)
+    OCI_IMAGE="docker.elastic.co/elastic-agent/elastic-agent-complete:${ELASTIC_AGENT_VERSION}"
+    ;;
+  *)
+    echo "Unknown ELASTIC_AGENT_FLAVOR: ${ELASTIC_AGENT_FLAVOR}. Supported values: basic, servers, complete." | indent
+    exit 1
+    ;;
+esac
+
+echo "Installing Elastic Agent ${ELASTIC_AGENT_VERSION} (flavor: ${ELASTIC_AGENT_FLAVOR})" | indent
+echo "Image: ${OCI_IMAGE}" | indent
+
+CRANE_VERSION="0.22.0"
+CRANE_URL="https://github.com/google/go-containerregistry/releases/download/v${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz"
+
+echo "Downloading crane ${CRANE_VERSION}" | indent
+curl -sL "${CRANE_URL}" -o /tmp/crane.tar.gz
+tar -xf /tmp/crane.tar.gz -C /tmp crane
+chmod +x /tmp/crane
+
+echo "Exporting Elastic Agent filesystem from OCI image" | indent
+/tmp/crane export \
+  --platform linux/amd64 \
+  "${OCI_IMAGE}" \
+  /tmp/elastic-agent.tar
+
+echo "Extracting Elastic Agent" | indent
+mkdir -p "${BUILD_DIR}/elastic-agent"
+tar -xf /tmp/elastic-agent.tar \
+  -C "${BUILD_DIR}/elastic-agent" \
+  usr/share/elastic-agent
+
+# usr/share/elastic-agent/elastic-agent is a symlink pointing to an absolute path
+# (/usr/share/elastic-agent/data/elastic-agent-<hash>/elastic-agent) which does not
+# resolve correctly outside the OCI image. Replace it with the actual binary.
+SYMLINK_TARGET=$(tar -xOf /tmp/elastic-agent.tar usr/share/elastic-agent/elastic-agent 2>/dev/null || true)
+REAL_BINARY=$(tar -tf /tmp/elastic-agent.tar | grep "usr/share/elastic-agent/data/.*/elastic-agent$" | head -1)
+if [ -n "${REAL_BINARY}" ]; then
+  echo "Resolving elastic-agent symlink → ${REAL_BINARY}" | indent
+  tar -xf /tmp/elastic-agent.tar -C "${BUILD_DIR}/elastic-agent" "${REAL_BINARY}"
+  rm -f "${BUILD_DIR}/elastic-agent/usr/share/elastic-agent/elastic-agent"
+  cp "${BUILD_DIR}/elastic-agent/${REAL_BINARY}" \
+     "${BUILD_DIR}/elastic-agent/usr/share/elastic-agent/elastic-agent"
+  chmod +x "${BUILD_DIR}/elastic-agent/usr/share/elastic-agent/elastic-agent"
+fi
+
+mkdir -p "${BUILD_DIR}/bin"
+cp "${BUILDPACK_PATH}/bin/elastic-agent" "${BUILD_DIR}/bin/elastic-agent"
+
+echo "Done" | indent

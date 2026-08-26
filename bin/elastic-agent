@@ -1,0 +1,25 @@
+#!/bin/bash
+
+APP_PATH=$(dirname $(readlink -f $0))/../
+
+# ELASTIC_AGENT_LOG_LEVEL : niveau de log de l'Elastic Agent et de ses sous-composants
+# (metricbeat, filebeat, etc.) sur stdout.
+# En mode "container", l'Agent écrit tous ses logs sur stdout (y compris les
+# rapports de métriques internes de libbeat "Total metrics"), ce qui peut générer
+# du bruit dans les consoles de logs des plateformes PaaS (ex: Scalingo).
+# Valeur par défaut : "warning" pour limiter le bruit tout en conservant
+# les messages importants.
+# Passer à "info" temporairement pour diagnostiquer un problème de démarrage.
+LOG_LEVEL="${ELASTIC_AGENT_LOG_LEVEL:-warning}"
+
+# Propage le niveau de log à elastic-agent.yml pour qu'il soit appliqué
+# aux sous-composants (metricbeat, etc.) qui ne lisent pas le flag --log-level.
+AGENT_YML="$APP_PATH/elastic-agent/usr/share/elastic-agent/elastic-agent.yml"
+if [ -f "$AGENT_YML" ]; then
+  sed -i "s/^#\?agent\.logging\.level:.*$/agent.logging.level: $LOG_LEVEL/" "$AGENT_YML"
+  if ! grep -q "^agent\.logging\.level:" "$AGENT_YML"; then
+    echo "agent.logging.level: $LOG_LEVEL" >> "$AGENT_YML"
+  fi
+fi
+
+$APP_PATH/elastic-agent/usr/share/elastic-agent/elastic-agent $*

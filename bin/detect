@@ -1,0 +1,4 @@
+#!/bin/bash
+
+echo "Elastic Agent"
+exit 0
