@@ -6,7 +6,7 @@ indent() {
   sed 's/^/       /'
 }
 
-ELASTIC_AGENT_VERSION=${ELASTIC_AGENT_VERSION:-9.4.5}
+ELASTIC_AGENT_VERSION=${ELASTIC_AGENT_VERSION:-9.4.6}
 ELASTIC_AGENT_FLAVOR=${ELASTIC_AGENT_FLAVOR:-basic}
 
 BUILDPACK_PATH=$(dirname $(readlink -f $0))/../
@@ -57,11 +57,18 @@ SYMLINK_TARGET=$(tar -xOf /tmp/elastic-agent.tar usr/share/elastic-agent/elastic
 REAL_BINARY=$(tar -tf /tmp/elastic-agent.tar | grep "usr/share/elastic-agent/data/.*/elastic-agent$" | head -1)
 if [ -n "${REAL_BINARY}" ]; then
   echo "Resolving elastic-agent symlink → ${REAL_BINARY}" | indent
-  tar -xf /tmp/elastic-agent.tar -C "${BUILD_DIR}/elastic-agent" "${REAL_BINARY}"
-  rm -f "${BUILD_DIR}/elastic-agent/usr/share/elastic-agent/elastic-agent"
-  cp "${BUILD_DIR}/elastic-agent/${REAL_BINARY}" \
-     "${BUILD_DIR}/elastic-agent/usr/share/elastic-agent/elastic-agent"
-  chmod +x "${BUILD_DIR}/elastic-agent/usr/share/elastic-agent/elastic-agent"
+
+  tar -xf /tmp/elastic-agent.tar \
+    -C "${BUILD_DIR}/elastic-agent" \
+    "${REAL_BINARY}"
+
+  AGENT_HOME="${BUILD_DIR}/elastic-agent/usr/share/elastic-agent"
+  REAL_BINARY_REL="${REAL_BINARY#usr/share/elastic-agent/}"
+
+  rm -f "${AGENT_HOME}/elastic-agent"
+
+  ln -s "${REAL_BINARY_REL}" \
+    "${AGENT_HOME}/elastic-agent"
 fi
 
 mkdir -p "${BUILD_DIR}/bin"

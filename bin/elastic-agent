@@ -22,4 +22,4 @@ if [ -f "$AGENT_YML" ]; then
   fi
 fi
 
-$APP_PATH/elastic-agent/usr/share/elastic-agent/elastic-agent $*
+exec "$APP_PATH/elastic-agent/usr/share/elastic-agent/elastic-agent" "$@"
