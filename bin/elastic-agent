@@ -1,6 +1,6 @@
 #!/bin/bash
 
-APP_PATH=$(dirname $(readlink -f $0))/../
+APP_PATH=$(dirname "$(readlink -f "$0")")/../
 
 # ELASTIC_AGENT_LOG_LEVEL : niveau de log de l'Elastic Agent et de ses sous-composants
 # (metricbeat, filebeat, etc.) sur stdout.

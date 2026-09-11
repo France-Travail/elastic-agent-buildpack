@@ -9,7 +9,7 @@ indent() {
 ELASTIC_AGENT_VERSION=${ELASTIC_AGENT_VERSION:-9.4.6}
 ELASTIC_AGENT_FLAVOR=${ELASTIC_AGENT_FLAVOR:-basic}
 
-BUILDPACK_PATH=$(dirname $(readlink -f $0))/../
+BUILDPACK_PATH=$(dirname "$(readlink -f "$0")")/../
 
 case "$ELASTIC_AGENT_FLAVOR" in
   basic)
@@ -53,7 +53,6 @@ tar -xf /tmp/elastic-agent.tar \
 # usr/share/elastic-agent/elastic-agent is a symlink pointing to an absolute path
 # (/usr/share/elastic-agent/data/elastic-agent-<hash>/elastic-agent) which does not
 # resolve correctly outside the OCI image. Replace it with the actual binary.
-SYMLINK_TARGET=$(tar -xOf /tmp/elastic-agent.tar usr/share/elastic-agent/elastic-agent 2>/dev/null || true)
 REAL_BINARY=$(tar -tf /tmp/elastic-agent.tar | grep "usr/share/elastic-agent/data/.*/elastic-agent$" | head -1)
 if [ -n "${REAL_BINARY}" ]; then
   echo "Resolving elastic-agent symlink → ${REAL_BINARY}" | indent
